@@ -2,6 +2,26 @@ import random as rng
 from VrpModel import VrpModel
 from GraphAlgos import GraphAlgos
 import networkx as nx
+import numpy as np
+import math
+
+def all_possible_matchings(arr):
+    res = []
+    if len(arr) == 2:
+        return [[(arr[0], arr[1])]]
+    for i in range(1, len(arr)):
+        # pick 0 and i
+        matching = (arr[0], arr[i])
+        arr.pop(i)
+        arr.pop(0)
+        sub_res = all_possible_matchings(arr)
+        for sub_matchings in sub_res:
+            sub_matchings.append(matching)
+        res.extend(sub_res)
+        arr.insert(0, matching[0])
+        arr.insert(i, matching[1])
+    return res
+
 
 class VrpSolver:
     def __mst_to_christofides(dist_mat, mst_edges):
@@ -65,6 +85,23 @@ class VrpSolver:
             node_to_add = rng.choice(nodes)
             edges.append((0, node_to_add))
             nodes.remove(node_to_add)
+        INITIAL_EDGES_TO_ADD = 0
+        average_distance = dist_mat.sum() / (len(dist_mat)**2 - len(dist_mat))
+        initial_mst = edges.copy()
+        for (root, first_vertex) in edges:
+            for _ in range(INITIAL_EDGES_TO_ADD):
+                max_dist_multiplier = 1.60
+                min_dist_multiplier = 1.0
+                while 1:
+                    #print(f'Accept up to: {accept_dist_ratio}')
+                    node_to_add = rng.choice(nodes)
+                    if(dist_mat[first_vertex][node_to_add] > average_distance * max_dist_multiplier) or (dist_mat[first_vertex][node_to_add] < average_distance*min_dist_multiplier):
+                        max_dist_multiplier += 0.001
+                        #min_dist_multiplier -= 0.001
+                        continue
+                    initial_mst.append((first_vertex, node_to_add))
+                    nodes.remove(node_to_add)
+                    break
         mst = GraphAlgos.minimum_spanning_tree(model.dist_mat, edges)
         connected_components = {}
         # remove node 0 and calculate connected components, this will give 2*vehicle MSTs
@@ -82,19 +119,34 @@ class VrpSolver:
                 connected_components[parent] = []
             connected_components[parent].append((edge_start, edge_end))
         sub_msts = []
-        for i in range(0, len(edges), 2):
-            mst_to_add = []
-            mst_to_add.append(edges[i])
-            mst_to_add.append(edges[i+1])
-            for edge in connected_components[GraphAlgos.dsu_find_parent(edges[i][1], parents)]:
-                mst_to_add.append(edge)
-            for edge in connected_components[GraphAlgos.dsu_find_parent(edges[i+1][1], parents)]:
-                mst_to_add.append(edge)
-            sub_msts.append(mst_to_add)
-        routes = []
-        for vehicle in range(0,len(sub_msts)):
-            routes.append(VrpSolver.__mst_to_christofides(dist_mat, sub_msts[vehicle]))
-        return routes
+        solutions = []
+        car_path_mergings = all_possible_matchings(edges)
+        CHECK_MATCHINGS_RATIO = 0.05
+        max_ind = min(len(car_path_mergings), math.ceil(len(car_path_mergings) * CHECK_MATCHINGS_RATIO))
+        max_ind = max(max_ind, 1)
+        rng.shuffle(car_path_mergings)
+        for matchings in car_path_mergings[:max_ind]:
+            vehicle_paths = []
+            for vehicle_path in matchings: # [(0, v1), (0, v2)]
+                path1, path2 = vehicle_path
+                mst_to_add = []
+                mst_to_add.append(path1)
+                mst_to_add.append(path2)
+                for edge in connected_components[GraphAlgos.dsu_find_parent(path1[1], parents)]:
+                    mst_to_add.append(edge)
+                for edge in connected_components[GraphAlgos.dsu_find_parent(path2[1], parents)]:
+                    mst_to_add.append(edge)
+                vehicle_paths.append(VrpSolver.__mst_to_christofides(dist_mat, mst_to_add))
+            solutions.append(vehicle_paths)
+        minimum_index = 0
+        minimum_solution = model.find_solution_value(solutions[0])
+        for i in range(1, len(solutions)):
+            sol_value = model.find_solution_value(solutions[i])
+            if sol_value < minimum_solution:
+                minimum_index = i
+                minimum_solution = sol_value
+        return solutions[minimum_index]
+        
 
         
 
