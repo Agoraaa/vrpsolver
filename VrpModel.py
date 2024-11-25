@@ -25,6 +25,13 @@ class VrpModel():
                 res_dict["distances"][self.names[i]][self.names[j]] = self.dist_mat[i][j]
         return json.dumps(res_dict, indent=5)
 
+    def find_solution_value(self, vehicle_paths):
+        res = 0
+        for path in vehicle_paths:
+            for i in range(len(path)-1):
+                res += self.dist_mat[path[i]][path[i+1]] 
+        res += self.dist_mat[path[-1]][0]
+        return res
 
     def from_json(json_dict):
         node_cnt = len(json_dict["demands"])
