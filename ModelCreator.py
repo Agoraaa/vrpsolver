@@ -1,6 +1,7 @@
 import random as rng
 from enum import Enum
 from VrpModel import VrpModel
+import numpy as np
 class DistanceFunction(Enum):
     Manhattan = 1,
     Euclidean = 2,
@@ -55,6 +56,7 @@ class ModelCreator:
                 dist = round(node_coordinates[i].dist_to(node_coordinates[j], config.distance_function))
                 dist_mat[i][j] = dist
                 dist_mat[j][i] = dist
+        dist_mat = np.array(dist_mat)
         return VrpModel(dist_mat, config.num_vehicles, config.vehicle_capacity, demands)
 
         

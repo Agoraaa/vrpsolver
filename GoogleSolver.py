@@ -15,6 +15,7 @@ class GoogleSolver:
         """Prints solution on console."""
         print(f"Objective: {solution.ObjectiveValue()}")
         max_route_distance = 0
+        total_route_distance = 0
         for vehicle_id in range(data["num_vehicles"]):
             index = routing.Start(vehicle_id)
             plan_output = f"Route for vehicle {vehicle_id}:\n"
@@ -29,8 +30,10 @@ class GoogleSolver:
             plan_output += f"{manager.IndexToNode(index)}\n"
             plan_output += f"Distance of the route: {route_distance}m\n"
             print(plan_output)
+            total_route_distance += route_distance
             max_route_distance = max(route_distance, max_route_distance)
-        print(f"Maximum of the route distances: {max_route_distance}m")
+        #print(f"Maximum of the route distances: {max_route_distance}m")
+        print(f'Total route distance: {total_route_distance}')
 
     def solve(vrp_model: VrpModel):
 

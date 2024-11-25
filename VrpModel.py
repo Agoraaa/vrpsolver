@@ -1,5 +1,5 @@
 import json
-
+import numpy as np
 class VrpModel():
     def __init__(self, distance_matrix, num_vehicles, vehicle_capacity, demands, names=None):
         self.dist_mat = distance_matrix
@@ -48,6 +48,8 @@ class VrpModel():
                 j = name_to_ind[city2]
                 dist_mat[i][j]=json_dict["distances"][city1][city2]
                 dist_mat[j][i]=json_dict["distances"][city1][city2]
+        dist_mat = np.array(dist_mat)
+        np.random.normal()
         return VrpModel(dist_mat, json_dict["numberOfVehicles"], json_dict["vehicleCapacities"], demands, json_dict["nodeNames"])
 
 
