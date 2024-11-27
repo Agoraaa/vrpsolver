@@ -3,8 +3,8 @@ from ortools.constraint_solver import pywrapcp
 from ModelCreator import *
 import GoogleSolver
 import json
-from GraphAlgos import GraphAlgos
-from VrpSolver import *#VrpSolver
+import GraphAlgos
+import VrpSolver
 import time
 
 def main():
@@ -14,7 +14,7 @@ def main():
     accumulated_time = 0
     best_distance = 10**10
     best_solution = []
-    ITER_COUNT = 100
+    ITER_COUNT = 1
     for _ in range(ITER_COUNT):
         start_ts = time.time()
         vehicle_paths = VrpSolver.construct(model)
