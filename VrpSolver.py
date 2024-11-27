@@ -1,5 +1,6 @@
 import random as rng
-from VrpModel import VrpModel
+from VrpModel import *
+from SolutionExtensions import *
 import GraphAlgos
 import networkx as nx
 import numpy as np
@@ -154,17 +155,34 @@ def construct(model: VrpModel):
             vehicle_paths.append(_mst_to_christofides(dist_mat, mst_to_add))
         solutions.append(vehicle_paths)
     minimum_index = 0
-    minimum_solution = model.find_solution_value(solutions[0])
+    minimum_solution = find_solution_value(model, solutions[0])
     for i in range(1, len(solutions)):
-        sol_value = model.find_solution_value(solutions[i])
+        sol_value = find_solution_value(model, solutions[i])
         if sol_value < minimum_solution:
             minimum_index = i
             minimum_solution = sol_value
     return solutions[minimum_index]
-    
-def balance_capacity(solution, model):
-    pass
 
+def _balance_capacity(solution, model):
+    heavy_car = solution[0]
+    light_car = solution[-1]
+    demands = model.demands
+    max_ind = rng.randint(1, len(heavy_car)-2)
+    #max_demand, max_ind = demands[heavy_car[1]], 1
+    #for i in range(2, len(heavy_car)-1):
+    #    if demands[heavy_car[i]] > max_demand:
+    #        max_ind = i
+    #        max_demand = demands[heavy_car[i]]
+    light_car.insert(len(light_car)-2, heavy_car[max_ind])
+    heavy_car.pop(max_ind)
+
+def optimize(solution, model):
+    sort_solution(solution, model)
+    while not is_feasible(solution, model):
+        _balance_capacity(solution, model)
+        sort_solution_bubble(solution, model)
         
+    return solution
+    
 
 

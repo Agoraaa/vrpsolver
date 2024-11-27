@@ -6,6 +6,7 @@ import json
 import GraphAlgos
 import VrpSolver
 import time
+from SolutionExtensions import *
 
 def main():
     model = VrpModel.from_json(json.load(open("model.json")))
@@ -14,10 +15,12 @@ def main():
     accumulated_time = 0
     best_distance = 10**10
     best_solution = []
-    ITER_COUNT = 1
+    ITER_COUNT = 50
+    print(f'Running {ITER_COUNT} tests...')
     for _ in range(ITER_COUNT):
         start_ts = time.time()
         vehicle_paths = VrpSolver.construct(model)
+        vehicle_paths = VrpSolver.optimize(vehicle_paths, model)
         time_took = time.time() - start_ts
         total_dist = 0
         for path in vehicle_paths:
@@ -37,11 +40,12 @@ def main():
         capacity = 0
         for i in range(len(path)-1):
             print(f'{path[i]}->', end='')
-            capacity += model.demands[i]
+            capacity += model.demands[path[i]]
             total_dist += model.dist_mat[path[i]][path[i+1]]
         print(f'0 Total used capacity: {capacity}\n') 
         total_dist += model.dist_mat[path[-1]][0]
     print(f'Total distance: {best_distance}')
+    print(f'Fesabile or not: {is_feasible(best_solution, model)}')
     
         
         
