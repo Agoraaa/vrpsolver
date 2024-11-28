@@ -177,6 +177,33 @@ class VrpSolver():
         light_car.insert(len(light_car)-2, heavy_car[max_ind])
         heavy_car.pop(max_ind)
 
+    def opt_2(self, path):
+        dist_mat = self.model.dist_mat
+        if len(path) < 4:
+            return False
+        for _ in range(1000):
+            v1, v2 = 0, 0
+            v1 = rng.randint(2, len(path)-3)
+            while 1:
+                v2 = rng.randint(2, len(path)-3)
+                if abs(v1-v2) > 1:
+                    break
+            if v2 < v1:
+                temp = v2
+                v2 = v1
+                v1 = temp
+            gain = 1* (dist_mat[path[v1]][path[v1+1]] + dist_mat[path[v2]][path[v2+1]]) \
+                    - (dist_mat[path[v1]][path[v2]] + dist_mat[path[v1+1]][path[v2+1]])
+            if gain > 0:
+                #print("Swapping")
+                new_path = []
+                new_path.extend(path[:(v1+1)])
+                new_path.extend(reversed(path[(v1+1):(v2+1)]))
+                new_path.extend(path[(v2+1):])
+                return new_path
+        return path
+        
+
     def opt_3(self, path):
         def move_city_dist(new_place, city):
             return self.model.dist_mat[path[new_place-1]][city] + self.model.dist_mat[city][path[new_place+1]]
