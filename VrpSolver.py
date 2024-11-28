@@ -196,7 +196,6 @@ class VrpSolver():
             gain = 1* (dist_mat[path[v1]][path[v1+1]] + dist_mat[path[v2]][path[v2+1]]) \
                     - (dist_mat[path[v1]][path[v2]] + dist_mat[path[v1+1]][path[v2+1]])
             if gain > 0:
-                #print("Swapping")
                 new_path = []
                 new_path.extend(path[:(v1+1)])
                 new_path.extend(reversed(path[(v1+1):(v2+1)]))
@@ -204,7 +203,40 @@ class VrpSolver():
                 return new_path
         return path
         
-
+    def move_city(self, sol, car_ind = 0):
+        dist_gain_ifremoved = []
+        main_path = sol[car_ind]
+        for ind, city in enumerate(main_path[1:-1], start=1):
+            dist_gain_ifremoved.append((ind, self.model.dist_mat[main_path[ind-1]][city] \
+                                        + self.model.dist_mat[city][main_path[ind+1]]\
+                                        - self.model.dist_mat[main_path[ind-1]][main_path[ind+1]]))
+        # nlogn but whatever
+        dist_gain_ifremoved.sort(key=lambda x: x[1], reverse=True)
+        city_to_move, dist_gain = rng.choice(dist_gain_ifremoved[:8])
+        city_demand = self.model.demands[main_path[city_to_move]]
+        other_cars = [i for i in range(len(sol))]
+        other_cars.remove(car_ind)
+        for i in range(len(other_cars)-1, -1, -1):
+            if self.used_car_capacity(sol[other_cars[i]]) + city_demand > self.model.capacity:
+                other_cars.pop(i)
+        if not other_cars:
+            return
+        move_city_to = rng.choice(other_cars)
+        new_car = sol[move_city_to]
+        losses = []
+        for (ind, city) in enumerate(new_car[1:-1], start=1):
+            losses.append((ind, 
+                    self.model.dist_mat[new_car[ind-1]][main_path[city_to_move]]\
+                  + self.model.dist_mat[main_path[city_to_move]][new_car[ind]]\
+                  - self.model.dist_mat[new_car[ind-1]][new_car[ind]]
+                )
+            )
+        best_move, distance_loss = min(losses, key=lambda x: x[1])
+        if dist_gain - distance_loss >= 0:
+            #print(f"Removing {city_to_move} from {car_ind}")
+            #print(f"Inserting it to {best_move}")
+            new_car.insert(best_move, main_path[city_to_move])
+            main_path.pop(city_to_move)
     def opt_3(self, path):
         raise NotImplementedError()
 
@@ -244,11 +276,10 @@ class VrpSolver():
         return res
 
     def optimize(self, sol):
-        sol[0] = self.opt_2(sol[0])
-        sol[1] = self.opt_2(sol[1])
-        sol[2] = self.opt_2(sol[2])
-        sol[3] = self.opt_2(sol[3])
-
+        for _ in range(200):
+            self.opt_2(rng.choice(sol))
+        for _ in range(50):
+            self.move_city(sol, rng.randint(0, len(sol)-1))
     def is_feasible(self, sol):
         timesVisited = [0] * len(self.model.demands)
         timesVisited[0] = 1
@@ -265,7 +296,7 @@ class VrpSolver():
                 return False
         return max(used_capacities) <= self.model.capacity
     
-    def test_optimizer(self, sol, iteration_limit = None, time_limit = None): # paradox of analysis, for very fast optimizers might not be very accurate
+    def test_optimizer(self, sol, iteration_limit = None, time_limit = None, print_res=True): # paradox of analysis, for very fast optimizers might not be very accurate
         start_z = self.find_solution_value(sol)
         if time_limit is not None:
             res = [0] * round((time_limit * 100)) # gain in 0.01th second
@@ -276,11 +307,13 @@ class VrpSolver():
                     self.optimize(sol)
                 new_z = self.find_solution_value(sol)
                 res[i] = (new_z - prev_z)/start_z
+            if not print_res:
+                return res
             print("Gain in every 0.01th second: ")
             for (i, gain) in enumerate(res):
-                print(f'{i+1}: {100*gain}%')
-            print(f'Started from -> optimized to: {start_z}->{self.find_solution_value(sol)}')
-            print(f'Total gain: {100*self.find_solution_value(sol)/start_z}%')
+                print(f'{i+1}: {"%.3f" % (100*gain)}%')
+            print(f'Started from/optimized to: {start_z}->{self.find_solution_value(sol)}')
+            print(f'Total reduction: {"%.3f" % (100*self.find_solution_value(sol)/start_z)}%')
             return res
                 
             
