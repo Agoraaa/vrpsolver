@@ -15,18 +15,23 @@ def main():
     accumulated_time = 0
     best_distance = 10**10
     best_solution = []
-    ITER_COUNT = 50
+    ITER_COUNT = 100
     print(f'Running {ITER_COUNT} tests...')
+    solver = VrpSolver.VrpSolver(model)
     for _ in range(ITER_COUNT):
         start_ts = time.time()
-        vehicle_paths = VrpSolver.construct(model)
-        vehicle_paths = VrpSolver.optimize(vehicle_paths, model)
+        vehicle_paths = solver.construct()
+        vehicle_paths = solver.optimize(vehicle_paths)
+        curr_z = solver.find_solution_value(vehicle_paths)
+        for _ in range(100):
+            solver.opt_3(vehicle_paths[0])
+            solver.opt_3(vehicle_paths[1])
+            solver.opt_3(vehicle_paths[2])
+            solver.opt_3(vehicle_paths[3])
+
         time_took = time.time() - start_ts
-        total_dist = 0
-        for path in vehicle_paths:
-            for i in range(len(path)-1):
-                total_dist += model.dist_mat[path[i]][path[i+1]]
-            total_dist += model.dist_mat[path[-1]][0]
+        
+        total_dist = solver.find_solution_value(vehicle_paths)
         if total_dist < best_distance:
             best_solution = vehicle_paths
             best_distance = total_dist
@@ -34,21 +39,8 @@ def main():
         accumulated_time += time_took
     average_solution_distance = accumulated_total_distances / ITER_COUNT
     average_time = accumulated_time / ITER_COUNT
-    
-    total_dist = 0
-    for path in best_solution:
-        capacity = 0
-        for i in range(len(path)-1):
-            print(f'{path[i]}->', end='')
-            capacity += model.demands[path[i]]
-            total_dist += model.dist_mat[path[i]][path[i+1]]
-        print(f'0 Total used capacity: {capacity}\n') 
-        total_dist += model.dist_mat[path[-1]][0]
-    print(f'Total distance: {best_distance}')
-    print(f'Fesabile or not: {is_feasible(best_solution, model)}')
-    
-        
-        
+    solver.is_feasible(best_solution)
+    solver.print_solution(best_solution)
     print(f'Ran {ITER_COUNT} tests. {average_solution_distance} Average, {best_distance} Best. Average time: {average_time}')
     
 
