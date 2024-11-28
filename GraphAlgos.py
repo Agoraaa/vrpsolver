@@ -1,6 +1,6 @@
 import numpy as np
 import networkx as nx
-
+import random as rng
 
 def dsu_find_parent(node, parents):
     if parents[node] == node:
@@ -20,7 +20,7 @@ def dsu_merge_sets(node1, node2, parents, counts):
     parents[node2] = node1
     counts[node1] += counts[node2]
 
-def minimum_spanning_tree(dist_mat, initial_edges = None):
+def minimum_spanning_tree(dist_mat, initial_edges = None, refuse_chance = 0):
     res = []
     # dsu stuff
     counts = [1] * len(dist_mat)
@@ -41,11 +41,18 @@ def minimum_spanning_tree(dist_mat, initial_edges = None):
         if initial_edges is not None:
             if edge_start == 0 or edge_end == 0:
                 continue
+        if rng.random() < refuse_chance:
+            continue
         dsu_merge_sets(edge_start, edge_end, parents, counts)
         res.append((edge_start, edge_end))
         if counts[dsu_find_parent(edge_start, parents)] == len(dist_mat):
             # early finish cuz i think ~3n iterations should be enough to build the tree, as opposed to n^2
+            return res
             break
+    # if all nodes are skipped, restart with no skipping allowed 
+    return minimum_spanning_tree(dist_mat, initial_edges=res, refuse_chance=0)
+    
+
     return res
 def perfect_matching(dist_mat):
     graph = nx.Graph()

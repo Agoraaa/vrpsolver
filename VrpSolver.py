@@ -143,9 +143,9 @@ class VrpSolver():
         solution = [self._mst_to_christofides(mst) for mst in car_msts]
         return solution
 
-    def construct_v2(self):  # this gives worse results than v1, i have no idea why
+    def construct_v2(self):
         dist_mat: np.ndarray = self.model.dist_mat
-        mst = GraphAlgos.minimum_spanning_tree(dist_mat[1:, 1:])
+        mst = GraphAlgos.minimum_spanning_tree(dist_mat[1:, 1:], refuse_chance=0.005)
         for i in range(len(mst)):
             mst[i] = (mst[i][0]+1, mst[i][1]+1)
         loop = self._mst_to_christofides(mst)
