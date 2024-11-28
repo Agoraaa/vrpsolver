@@ -4,6 +4,7 @@ import GraphAlgos
 import networkx as nx
 import numpy as np
 import math
+import time
 
 def _all_possible_matchings(arr):
     res = []
@@ -205,42 +206,9 @@ class VrpSolver():
         
 
     def opt_3(self, path):
-        def move_city_dist(new_place, city):
-            return self.model.dist_mat[path[new_place-1]][city] + self.model.dist_mat[city][path[new_place+1]]
-        def move_cities_dist(new_places, old_places):
-            res = 0
-            for i in range(len(old_places)):
-                res += move_city_dist(new_places[i], path[old_places[i]])
-            return res
-        MAX_TRIES = 1000
-        for _ in range(MAX_TRIES):
-            i, j, k = 0, 0, 0
-            i = rng.randint(1, len(path)-2)
-            while 1:
-                j = rng.randint(1, len(path)-2)
-                if abs(j - i) > 0:
-                    break
-            while 1:
-                k = rng.randint(1, len(path)-2)
-                if (abs(k - i)>0) and (abs(k - j)>0):
-                    break
-            old_dist = move_cities_dist([i, j, k], [i, j, k])
-            possible_swaps = [[k, i, j], [j, k, i], [i, k, j], [j, i, k], [k, j, i]]
-            for possible_swap in possible_swaps:
-                new_total_dist = move_cities_dist([i, j, k], possible_swap) 
-                if new_total_dist < old_dist:
-                    #print(f'Swapping {i}, {j}, {k} to {possible_swap[0]}, {possible_swap[1]}, {possible_swap[2]}')
-                    # to not lose values while swapping
-                    pathi = path[possible_swap[0]]
-                    pathj = path[possible_swap[1]]
-                    pathk = path[possible_swap[2]]
-                    path[i] = pathi
-                    path[j] = pathj
-                    path[k] = pathk
-                    return True
-        return False
+        raise NotImplementedError()
 
-    def optimize(self, solution):
+    def make_feasible(self, solution):
         self.sort_solution(solution)
         while not self.is_feasible(solution):
             self._balance_capacity(solution)
@@ -275,6 +243,12 @@ class VrpSolver():
         res += self.model.dist_mat[path[-1]][0]
         return res
 
+    def optimize(self, sol):
+        sol[0] = self.opt_2(sol[0])
+        sol[1] = self.opt_2(sol[1])
+        sol[2] = self.opt_2(sol[2])
+        sol[3] = self.opt_2(sol[3])
+
     def is_feasible(self, sol):
         timesVisited = [0] * len(self.model.demands)
         timesVisited[0] = 1
@@ -291,6 +265,28 @@ class VrpSolver():
                 return False
         return max(used_capacities) <= self.model.capacity
     
+    def test_optimizer(self, sol, iteration_limit = None, time_limit = None): # paradox of analysis, for very fast optimizers might not be very accurate
+        start_z = self.find_solution_value(sol)
+        if time_limit is not None:
+            res = [0] * round((time_limit * 100)) # gain in 0.01th second
+            for i in range(len(res)):
+                prev_z = self.find_solution_value(sol)
+                prev_ts = time.time()
+                while time.time() - prev_ts < 0.01:
+                    self.optimize(sol)
+                new_z = self.find_solution_value(sol)
+                res[i] = (new_z - prev_z)/start_z
+            print("Gain in every 0.01th second: ")
+            for (i, gain) in enumerate(res):
+                print(f'{i+1}: {100*gain}%')
+            print(f'Started from -> optimized to: {start_z}->{self.find_solution_value(sol)}')
+            print(f'Total gain: {100*self.find_solution_value(sol)/start_z}%')
+            return res
+                
+            
+        else:
+            raise NotImplementedError()
+
     def print_solution(self, sol):
         for path in sol:
             capacity = 0
