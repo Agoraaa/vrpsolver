@@ -6,7 +6,6 @@ import json
 import GraphAlgos
 import VrpSolver
 import time
-from SolutionExtensions import *
 
 def main():
     model = VrpModel.from_json(json.load(open("model.json")))
@@ -20,14 +19,13 @@ def main():
     solver = VrpSolver.VrpSolver(model)
     for _ in range(ITER_COUNT):
         start_ts = time.time()
-        vehicle_paths = solver.construct()
-        vehicle_paths = solver.optimize(vehicle_paths)
-        curr_z = solver.find_solution_value(vehicle_paths)
-        for _ in range(100):
-            solver.opt_3(vehicle_paths[0])
-            solver.opt_3(vehicle_paths[1])
-            solver.opt_3(vehicle_paths[2])
-            solver.opt_3(vehicle_paths[3])
+        vehicle_paths = solver.construct_v1()
+        #vehicle_paths = solver.optimize(vehicle_paths)
+        #for _ in range(10):
+        #    solver.opt_3(vehicle_paths[0])
+        #    solver.opt_3(vehicle_paths[1])
+        #    solver.opt_3(vehicle_paths[2])
+        #    solver.opt_3(vehicle_paths[3])
 
         time_took = time.time() - start_ts
         

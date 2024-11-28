@@ -38,8 +38,9 @@ def minimum_spanning_tree(dist_mat, initial_edges = None):
         if dsu_find_parent(edge_start, parents) == dsu_find_parent(edge_end, parents):
             continue
         # dont add any other edge to the root node
-        if edge_start == 0 or edge_end == 0:
-            continue
+        if initial_edges is not None:
+            if edge_start == 0 or edge_end == 0:
+                continue
         dsu_merge_sets(edge_start, edge_end, parents, counts)
         res.append((edge_start, edge_end))
         if counts[dsu_find_parent(edge_start, parents)] == len(dist_mat):

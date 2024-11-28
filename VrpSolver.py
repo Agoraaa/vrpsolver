@@ -1,6 +1,5 @@
 import random as rng
 from VrpModel import *
-from SolutionExtensions import *
 import GraphAlgos
 import networkx as nx
 import numpy as np
@@ -65,7 +64,7 @@ class VrpSolver():
             merged_graph.add_edge(v1,v2)
         for (edge_start, edge_end) in min_matching_edges:
             merged_graph.add_edge(edge_start, edge_end)
-        eulerian_circuit = [u for u, v in nx.eulerian_circuit(merged_graph, source=original_to_index[0])]
+        eulerian_circuit = [u for u, v in nx.eulerian_circuit(merged_graph)]
         # shortcut the eulerian circuit
         is_visited = [False] * len(index_to_original)
         tsp_path = []
@@ -79,7 +78,19 @@ class VrpSolver():
             tsp_path.append(tsp_path[0])
         return [index_to_original[i] for i in tsp_path]
 
-    def construct(self):
+    def construct_random(self):
+        cities = [i for i in range(1, len(self.model.demands))]
+        rng.shuffle(cities)
+        paths = [[0] for i in range(self.model.vehicles)]
+        curr_car = 0
+        while cities:
+            paths[curr_car].append(cities.pop())
+            curr_car += 1
+            curr_car %= self.model.vehicles
+        for p in paths:
+            p.append(0)
+        return paths
+    def construct_v1(self):
         dist_mat = self.model.dist_mat
         # select 2*vehicle edges from depot. currently we select it randomly
         edges = []
@@ -131,6 +142,27 @@ class VrpSolver():
 
         solution = [self._mst_to_christofides(mst) for mst in car_msts]
         return solution
+
+    def construct_v2(self):  # this gives worse results than v1, i have no idea why
+        dist_mat: np.ndarray = self.model.dist_mat
+        mst = GraphAlgos.minimum_spanning_tree(dist_mat[1:, 1:])
+        for i in range(len(mst)):
+            mst[i] = (mst[i][0]+1, mst[i][1]+1)
+        loop = self._mst_to_christofides(mst)
+        average_capacity = sum(self.model.demands)/self.model.vehicles
+        paths = [[0] for i in range(self.model.vehicles)]
+        curr_ind = 0
+        for i in range(self.model.vehicles):
+            used_capacity = 0
+            while used_capacity < average_capacity:
+                paths[i].append(loop[curr_ind])
+                used_capacity += self.model.demands[loop[curr_ind]]
+                curr_ind += 1
+                if curr_ind >= len(loop)-1:
+                    for p in paths:
+                        p.append(0)
+                    return paths
+                
 
     def _balance_capacity(self, solution):
         heavy_car = solution[0]
@@ -228,6 +260,7 @@ class VrpSolver():
         for i in timesVisited[1:]:
             if i != 1:
                 print("Wadafak")
+                raise Exception()
                 return False
         return max(used_capacities) <= self.model.capacity
     
