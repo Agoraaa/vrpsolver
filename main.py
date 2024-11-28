@@ -23,14 +23,14 @@ def main():
     cumulative_time = [0] * 100
     best_distance = 10**10
     best_solution = []
-    ITER_COUNT = 100
+    ITER_COUNT = 50
     print(f'Running {ITER_COUNT} tests...')
     for test_num in range(ITER_COUNT):
         print(test_num)
         start_ts = time.time()
         vehicle_paths = solver.construct_v1()
         vehicle_paths = solver.make_feasible(vehicle_paths)
-        time_gains = solver.test_optimizer(vehicle_paths, time_limit=0.1, print_res=False)
+        time_gains = solver.test_optimizer(vehicle_paths, time_limit=0.5, print_res=False)
         time_took = time.time() - start_ts
         total_dist = solver.find_solution_value(vehicle_paths)
         if total_dist < best_distance:
@@ -43,8 +43,9 @@ def main():
     print("Test ended.")
     print("-"*15)
     average_opt_gains = [100*i/ITER_COUNT for i in cumulative_time]
+    print("Reduction in every 0.01th second: ")
     for (i, gain) in enumerate(average_opt_gains):
-        print(f'Gain at {i+1}: {gain}')
+        print(f'Reduction at {i+1}: {"%.3f" % gain}%')
     average_solution_distance = accumulated_total_distances / ITER_COUNT
     average_time = accumulated_time / ITER_COUNT
     solver.is_feasible(best_solution)

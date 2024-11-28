@@ -276,9 +276,9 @@ class VrpSolver():
         return res
 
     def optimize(self, sol):
-        for _ in range(200):
+        for _ in range(20):
             self.opt_2(rng.choice(sol))
-        for _ in range(50):
+        for _ in range(5):
             self.move_city(sol, rng.randint(0, len(sol)-1))
     def is_feasible(self, sol):
         timesVisited = [0] * len(self.model.demands)
@@ -309,7 +309,7 @@ class VrpSolver():
                 res[i] = (new_z - prev_z)/start_z
             if not print_res:
                 return res
-            print("Gain in every 0.01th second: ")
+            print("Reduction in every 0.01th second: ")
             for (i, gain) in enumerate(res):
                 print(f'{i+1}: {"%.3f" % (100*gain)}%')
             print(f'Started from/optimized to: {start_z}->{self.find_solution_value(sol)}')
