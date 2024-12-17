@@ -35,7 +35,7 @@ class GoogleSolver:
         #print(f"Maximum of the route distances: {max_route_distance}m")
         print(f'Total route distance: {total_route_distance}')
 
-    def solve(vrp_model: VrpModel):
+    def solve(vrp_model: VrpModel, is_print = False):
 
         # Instantiate the data problem.
         data = GoogleSolver.create_data_model(vrp_model)
@@ -90,7 +90,9 @@ class GoogleSolver:
         solution = routing.SolveWithParameters(search_parameters)
         # Print solution on console.
         if solution:
-            GoogleSolver.print_solution(data, manager, routing, solution)
+            if is_print:
+                GoogleSolver.print_solution(data, manager, routing, solution)
+            return solution.ObjectiveValue()
         else:
             print("No solution found !")
 
