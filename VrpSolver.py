@@ -23,6 +23,14 @@ def _all_possible_matchings(arr):
         arr.insert(i, matching[1])
     return res
 
+def _pick_geometrically(arr, accept_chance):
+    for item in arr:
+        if rng.random() < accept_chance:
+            return item
+    print("Alarm")
+    return arr[-1]
+    
+
 class VrpSolver():
     def __init__(self, model: VrpModel):
         self.model = model
@@ -93,33 +101,34 @@ class VrpSolver():
         return paths
     def construct_v1(self):
         dist_mat = self.model.dist_mat
-        # select 2*vehicle edges from depot. currently we select it randomly
+        # select edges for depots, we choose by iteratively picking the furthest
         edges = []
-        nodes = [i for i in range(1, len(dist_mat))]
-        while len(edges) < self.model.vehicles:
-            node_to_add = rng.choice(nodes)
-            edges.append((0, node_to_add))
-            nodes.remove(node_to_add)
-        INITIAL_EDGES_TO_ADD = 0
-        MAX_DIST_MULTIPLIER = 10.0
-        MIN_DIST_MULTIPLIER = 0.0
-        average_distance = dist_mat.sum() / (len(dist_mat)**2 - len(dist_mat))
-        initial_mst = edges.copy()
-        for (root, first_vertex) in edges:
-            for _ in range(INITIAL_EDGES_TO_ADD):
-                curr_node = first_vertex
-                max_dist_multiplier = MAX_DIST_MULTIPLIER
-                min_dist_multiplier = MIN_DIST_MULTIPLIER
+        refuse_chance = 0.85
+        dist_to_center_ratio = 0.5
+        unit_ref_chance = math.exp(math.log(1-refuse_chance)/(0.01*len(dist_mat[0])))
+        if True:
+            candidate_edges = [(city, dist) for (city, dist) in enumerate(dist_mat[0])][1:]
+            candidate_edges.sort(key=lambda x: x[1])
+            edges.append(_pick_geometrically(candidate_edges[::], unit_ref_chance)[0])
+            while len(edges) < self.model.vehicles:
+                distances = [0] * len(dist_mat[0])
+                for i in range(1, len(distances)):
+                    for added_edge in edges:
+                        distances[i] += dist_mat[i][added_edge] # /edge_count but doesnt change anything
+                    distances[i] /= len(edges)
+                    distances[i] = -1*dist_to_center_ratio*dist_mat[i][0] + ((1-dist_to_center_ratio)*distances[i])
+                candidates = [(city, total_dist) for (city, total_dist) in enumerate(distances)]
+                candidates.sort(key=lambda x: x[1], reverse=False)
+                candidates = [c for (c, d) in candidates]
+                
+                is_added = False
+                edge_to_append = 1
                 while 1:
-                    node_to_add = rng.choice(nodes)
-                    if(dist_mat[curr_node][node_to_add] > average_distance * max_dist_multiplier) or (dist_mat[curr_node][node_to_add] < average_distance*min_dist_multiplier):
-                        max_dist_multiplier += 0.001
-                        min_dist_multiplier -= 0.001
-                        continue
-                    initial_mst.append((curr_node, node_to_add))
-                    curr_node = node_to_add
-                    nodes.remove(node_to_add)
-                    break
+                    edge_to_append = _pick_geometrically(candidates, unit_ref_chance)
+                    if (edge_to_append != 0) and (edge_to_append not in edges):
+                        break
+                edges.append(edge_to_append)
+            edges = [(0, v) for v in edges]
         mst = GraphAlgos.minimum_spanning_tree(dist_mat, edges)
         connected_components = {}
         # remove node 0 and calculate connected components, this will give #vehicle MSTs
@@ -150,6 +159,9 @@ class VrpSolver():
         for i in range(len(mst)):
             mst[i] = (mst[i][0]+1, mst[i][1]+1)
         loop = self._mst_to_christofides(mst)
+        start_ts = time.time()
+        while time.time() - start_ts < 0.04:
+            self.opt_2(loop)
         average_capacity = sum(self.model.demands)/self.model.vehicles
         paths = [[0] for i in range(self.model.vehicles)]
         curr_ind = 0
@@ -163,6 +175,8 @@ class VrpSolver():
                     for p in paths:
                         p.append(0)
                     return paths
+        
+        
                 
 
     def _balance_capacity(self, solution):
