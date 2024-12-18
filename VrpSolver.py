@@ -5,6 +5,7 @@ import networkx as nx
 import numpy as np
 import math
 import time
+import parameters
 
 def _all_possible_matchings(arr):
     res = []
@@ -101,35 +102,17 @@ class VrpSolver():
         return paths
     def construct_v1(self):
         dist_mat = self.model.dist_mat
-        # select edges for depots, we choose by iteratively picking the furthest
+        # select edges for depots, currently we choose randomly because nothing seems to improve the solution
         edges = []
-        refuse_chance = 0.85
-        dist_to_center_ratio = 0.5
-        unit_ref_chance = math.exp(math.log(1-refuse_chance)/(0.01*len(dist_mat[0])))
-        if True:
-            candidate_edges = [(city, dist) for (city, dist) in enumerate(dist_mat[0])][1:]
-            candidate_edges.sort(key=lambda x: x[1])
-            edges.append(_pick_geometrically(candidate_edges[::], unit_ref_chance)[0])
-            while len(edges) < self.model.vehicles:
-                distances = [0] * len(dist_mat[0])
-                for i in range(1, len(distances)):
-                    for added_edge in edges:
-                        distances[i] += dist_mat[i][added_edge] # /edge_count but doesnt change anything
-                    distances[i] /= len(edges)
-                    distances[i] = -1*dist_to_center_ratio*dist_mat[i][0] + ((1-dist_to_center_ratio)*distances[i])
-                candidates = [(city, total_dist) for (city, total_dist) in enumerate(distances)]
-                candidates.sort(key=lambda x: x[1], reverse=False)
-                candidates = [c for (c, d) in candidates]
-                
-                is_added = False
-                edge_to_append = 1
-                while 1:
-                    edge_to_append = _pick_geometrically(candidates, unit_ref_chance)
-                    if (edge_to_append != 0) and (edge_to_append not in edges):
-                        break
-                edges.append(edge_to_append)
-            edges = [(0, v) for v in edges]
-        mst = GraphAlgos.minimum_spanning_tree(dist_mat, edges)
+        refuse_chance = 0.0
+        while len(edges) < self.model.vehicles:
+            while 1:
+                edge_to_append = rng.randint(1, len(dist_mat[0])-1)
+                if (edge_to_append != 0) and (edge_to_append not in edges):
+                    break
+            edges.append(edge_to_append)
+        edges = [(0, v) for v in edges]
+        mst = GraphAlgos.minimum_spanning_tree(dist_mat, edges, refuse_chance)
         connected_components = {}
         # remove node 0 and calculate connected components, this will give #vehicle MSTs
         counts = [1 for i in range(len(dist_mat))]
@@ -175,6 +158,31 @@ class VrpSolver():
                     for p in paths:
                         p.append(0)
                     return paths
+    def solve(self, time_limit = 10):
+        white_noise_coeff = parameters.RANDOM_NOISE_START
+        max_sol_count = parameters.MULTIPLE_SOLUTIONS_CNT
+        start_ts = time.time()
+        average_edge_dist = sum([sum(self.model.dist_mat[i]) for i in range(0, len(self.model.dist_mat))])/(len(self.model.dist_mat)**2)
+        initial_sol = self.construct_v1()
+        self.make_feasible(initial_sol)
+        solutions = [initial_sol] * max_sol_count # should diversify pretty fast
+        construction_ts = time.time() - start_ts
+        percentile_results = []
+        while time.time() - start_ts < time_limit:
+            time_remaining_percentage = (time_limit - (time.time() - start_ts))/time_limit
+            noise_std = time_remaining_percentage * white_noise_coeff * average_edge_dist
+            sub_time = time.time()
+            while time.time() - sub_time < 0.05:
+                for solution in solutions:
+                    self.optimize(solution, noise_std)
+            # remove worst solutions until we stop exceeding the max amount
+            solutions = solutions[:max_sol_count]
+            average_z = sum(self.find_solution_value(sol) for sol in solutions)/len(solutions)
+            percentile_results.append(average_z)
+        solutions.sort(key=lambda x: self.find_solution_value(x))
+        return solutions[0]
+        
+
         
         
                 
@@ -192,7 +200,7 @@ class VrpSolver():
         light_car.insert(len(light_car)-2, heavy_car[max_ind])
         heavy_car.pop(max_ind)
 
-    def opt_2(self, path):
+    def opt_2(self, path, noise_std = 0):
         dist_mat = self.model.dist_mat
         if len(path) < 4:
             return False
@@ -208,7 +216,8 @@ class VrpSolver():
                 v2 = v1
                 v1 = temp
             gain = 1* (dist_mat[path[v1]][path[v1+1]] + dist_mat[path[v2]][path[v2+1]]) \
-                    - (dist_mat[path[v1]][path[v2]] + dist_mat[path[v1+1]][path[v2+1]])
+                    - (dist_mat[path[v1]][path[v2]] + dist_mat[path[v1+1]][path[v2+1]]) \
+                    + rng.normalvariate(0, noise_std)
             if gain > 0:
                 new_path = []
                 new_path.extend(path[:(v1+1)])
@@ -217,7 +226,7 @@ class VrpSolver():
                 return new_path
         return path
         
-    def move_city(self, sol, car_ind = 0):
+    def move_city(self, sol, car_ind = 0, noise_std = 0):
         dist_gain_ifremoved = []
         main_path = sol[car_ind]
         for ind, city in enumerate(main_path[1:-1], start=1):
@@ -242,7 +251,8 @@ class VrpSolver():
             losses.append((ind, 
                     self.model.dist_mat[new_car[ind-1]][main_path[city_to_move]]\
                   + self.model.dist_mat[main_path[city_to_move]][new_car[ind]]\
-                  - self.model.dist_mat[new_car[ind-1]][new_car[ind]]
+                  - self.model.dist_mat[new_car[ind-1]][new_car[ind]]\
+                  + rng.normalvariate(0, noise_std)
                 )
             )
         best_move, distance_loss = min(losses, key=lambda x: x[1])
@@ -289,11 +299,10 @@ class VrpSolver():
         res += self.model.dist_mat[path[-1]][0]
         return res
 
-    def optimize(self, sol):
-        for _ in range(20):
-            self.opt_2(rng.choice(sol))
-        for _ in range(5):
-            self.move_city(sol, rng.randint(0, len(sol)-1))
+    def optimize(self, sol, noise_std = 0):
+        for _ in range(parameters.SWAP_FREQ):
+            self.opt_2(rng.choice(sol), noise_std)
+        self.move_city(sol, rng.randint(0, len(sol)-1), noise_std)
     def is_feasible(self, sol):
         timesVisited = [0] * len(self.model.demands)
         timesVisited[0] = 1
