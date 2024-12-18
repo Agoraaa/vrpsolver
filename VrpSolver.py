@@ -104,7 +104,6 @@ class VrpSolver():
         dist_mat = self.model.dist_mat
         # select edges for depots, currently we choose randomly because nothing seems to improve the solution
         edges = []
-        refuse_chance = 0.0
         while len(edges) < self.model.vehicles:
             while 1:
                 edge_to_append = rng.randint(1, len(dist_mat[0])-1)
@@ -112,7 +111,7 @@ class VrpSolver():
                     break
             edges.append(edge_to_append)
         edges = [(0, v) for v in edges]
-        mst = GraphAlgos.minimum_spanning_tree(dist_mat, edges, refuse_chance)
+        mst = GraphAlgos.minimum_spanning_tree(dist_mat, edges)
         connected_components = {}
         # remove node 0 and calculate connected components, this will give #vehicle MSTs
         counts = [1 for i in range(len(dist_mat))]
@@ -171,32 +170,23 @@ class VrpSolver():
         while time.time() - start_ts < time_limit:
             time_remaining_percentage = (time_limit - (time.time() - start_ts))/time_limit
             noise_std = time_remaining_percentage * white_noise_coeff * average_edge_dist
+            if time_remaining_percentage < 0.1:
+                # stop diversifying if time is low
+                noise_std = 0
             sub_time = time.time()
             while time.time() - sub_time < 0.05:
                 for solution in solutions:
                     self.optimize(solution, noise_std)
-            # remove worst solutions until we stop exceeding the max amount
-            solutions = solutions[:max_sol_count]
             average_z = sum(self.find_solution_value(sol) for sol in solutions)/len(solutions)
             percentile_results.append(average_z)
         solutions.sort(key=lambda x: self.find_solution_value(x))
         return solutions[0]
         
-
-        
-        
-                
-
     def _balance_capacity(self, solution):
         heavy_car = solution[0]
         light_car = solution[-1]
         demands = self.model.demands
         max_ind = rng.randint(1, len(heavy_car)-2)
-        #max_demand, max_ind = demands[heavy_car[1]], 1
-        #for i in range(2, len(heavy_car)-1):
-        #    if demands[heavy_car[i]] > max_demand:
-        #        max_ind = i
-        #        max_demand = demands[heavy_car[i]]
         light_car.insert(len(light_car)-2, heavy_car[max_ind])
         heavy_car.pop(max_ind)
 
@@ -257,8 +247,6 @@ class VrpSolver():
             )
         best_move, distance_loss = min(losses, key=lambda x: x[1])
         if dist_gain - distance_loss >= 0:
-            #print(f"Removing {city_to_move} from {car_ind}")
-            #print(f"Inserting it to {best_move}")
             new_car.insert(best_move, main_path[city_to_move])
             main_path.pop(city_to_move)
     def opt_3(self, path):
@@ -303,6 +291,7 @@ class VrpSolver():
         for _ in range(parameters.SWAP_FREQ):
             self.opt_2(rng.choice(sol), noise_std)
         self.move_city(sol, rng.randint(0, len(sol)-1), noise_std)
+
     def is_feasible(self, sol):
         timesVisited = [0] * len(self.model.demands)
         timesVisited[0] = 1
@@ -318,30 +307,6 @@ class VrpSolver():
                 raise Exception()
                 return False
         return max(used_capacities) <= self.model.capacity
-    
-    def test_optimizer(self, sol, iteration_limit = None, time_limit = None, print_res=True): # paradox of analysis, for very fast optimizers might not be very accurate
-        start_z = self.find_solution_value(sol)
-        if time_limit is not None:
-            res = [0] * round((time_limit * 100)) # gain in 0.01th second
-            for i in range(len(res)):
-                prev_z = self.find_solution_value(sol)
-                prev_ts = time.time()
-                while time.time() - prev_ts < 0.01:
-                    self.optimize(sol)
-                new_z = self.find_solution_value(sol)
-                res[i] = (new_z - prev_z)/start_z
-            if not print_res:
-                return res
-            print("Reduction in every 0.01th second: ")
-            for (i, gain) in enumerate(res):
-                print(f'{i+1}: {"%.3f" % (100*gain)}%')
-            print(f'Started from/optimized to: {start_z}->{self.find_solution_value(sol)}')
-            print(f'Total reduction: {"%.3f" % (100*self.find_solution_value(sol)/start_z)}%')
-            return res
-                
-            
-        else:
-            raise NotImplementedError()
 
     def print_solution(self, sol):
         for path in sol:

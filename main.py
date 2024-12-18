@@ -13,7 +13,7 @@ def main():
     solver = VrpSolver.VrpSolver(model)
     optimal_value = GoogleSolver.GoogleSolver.solve(model, is_print = False)
     start_time = time.time()
-    result = solver.solve(time_limit=10)
+    result = solver.solve(time_limit=30)
     time_took = time.time() - start_time
     solver.is_feasible(result)
     solver.print_solution(result)
