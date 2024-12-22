@@ -162,11 +162,12 @@ class VrpSolver():
         max_sol_count = parameters.MULTIPLE_SOLUTIONS_CNT
         start_ts = time.time()
         average_edge_dist = sum([sum(self.model.dist_mat[i]) for i in range(0, len(self.model.dist_mat))])/(len(self.model.dist_mat)**2)
-        initial_sol = self.construct_v1()
+        initial_sol = self.construct_v2()
         self.make_feasible(initial_sol)
         solutions = [initial_sol] * max_sol_count # should diversify pretty fast
         construction_ts = time.time() - start_ts
         percentile_results = []
+        iter_count = 0
         while time.time() - start_ts < time_limit:
             time_remaining_percentage = (time_limit - (time.time() - start_ts))/time_limit
             noise_std = time_remaining_percentage * white_noise_coeff * average_edge_dist
@@ -175,11 +176,13 @@ class VrpSolver():
                 noise_std = 0
             sub_time = time.time()
             while time.time() - sub_time < 0.05:
+                iter_count += parameters.SWAP_FREQ + 1
                 for solution in solutions:
                     self.optimize(solution, noise_std)
             average_z = sum(self.find_solution_value(sol) for sol in solutions)/len(solutions)
             percentile_results.append(average_z)
         solutions.sort(key=lambda x: self.find_solution_value(x))
+        print(f"Iterated f{iter_count} times.")
         return solutions[0]
         
     def _balance_capacity(self, solution):
