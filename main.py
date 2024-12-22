@@ -9,6 +9,14 @@ import time
 import parameters
 
 def main():
+    if False:
+        model_config = ModelCreatorConfig(width=5000, height=5000, num_nodes=100, num_vehicles=4, vehicle_capacity=120, max_demand=8)
+        new_model = ModelCreator.create_rectangular(model_config)
+        with open("new_model.json", 'w+') as fil:
+            fil.write(new_model.to_json())
+        print("Created new_model.json")
+        return
+        
     model = VrpModel.from_json(json.load(open("model.json")))
     solver = VrpSolver.VrpSolver(model)
     optimal_value = GoogleSolver.GoogleSolver.solve(model, is_print = False)
