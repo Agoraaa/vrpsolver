@@ -17,12 +17,12 @@ class VrpModel():
         res_dict["depotName"] = self.names[0]
         res_dict["demands"] = {}
         for i in range(len(self.demands)):
-            res_dict['demands'][self.names[i]] = self.demands[i]
+            res_dict['demands'][self.names[i]] = int(self.demands[i])
         res_dict["distances"] = {}
         for i in range(0, len(self.dist_mat)-1):
             res_dict["distances"][self.names[i]] = {}
             for j in range(i+1, len(self.dist_mat)):
-                res_dict["distances"][self.names[i]][self.names[j]] = self.dist_mat[i][j]
+                res_dict["distances"][self.names[i]][self.names[j]] = int(self.dist_mat[i][j])
         return json.dumps(res_dict, indent=5)
 
     def from_json(json_dict):
